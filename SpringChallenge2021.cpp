@@ -141,18 +141,31 @@ public:
         return false;
     }
 
+    Tree* find_tree(int cell_id) {
+        for (int i = 0; i < trees.size(); i++)
+            if (trees[i].cell_index == cell_id)
+                return &trees[i];
+        return NULL;
+    }
+
+    int countTreeSizeMax() {
+        int nbr = 0;
+        for (int i = 0; i < trees.size(); i++)
+            if (trees[i].size == 3)
+                nbr++;
+        return nbr;
+    }
+
     string compute_next_action() {
         tuple<string,int,int> selected = possible_actions[0];
         for (int i = 0; i < possible_actions.size(); i++){
             cerr << possible_actions[i] << endl;
             if (get<0>(possible_actions[i]) != "WAIT") {
-                if (get<0>(possible_actions[i]) == "COMPLETE") {
-                    if (board[get<1>(possible_actions[i])].richness > 1 || day >= 22) {
-                        if (get<0>(selected) == "WAIT")
-                            selected = possible_actions[i];
-                        else if (board[get<1>(possible_actions[i])].richness > board[get<1>(selected)].richness)
-                            selected = possible_actions[i];
-                    }
+                if (get<0>(possible_actions[i]) == "GROW") {
+                    if (get<0>(selected) == "WAIT")
+                        selected = possible_actions[i];
+                    else if (board[get<1>(possible_actions[i])].richness > board[get<1>(selected)].richness)
+                        selected = possible_actions[i];
                 }
                 else if (get<0>(possible_actions[i]) == "SEED") {
                     if (!is_in_shadow(get<2>(possible_actions[i]))) {
@@ -162,14 +175,16 @@ public:
                             selected = possible_actions[i];
                     }
                 }
+                else if (get<0>(possible_actions[i]) == "COMPLETE") {
+                    if (countTreeSizeMax() > 5 || day >= 22) {
+                        if (get<0>(selected) == "WAIT")
+                            selected = possible_actions[i];
+                        else if (board[get<1>(possible_actions[i])].richness > board[get<1>(selected)].richness)
+                            selected = possible_actions[i];
+                    }
+                }
             }
         }
-        if (get<0>(selected) == "WAIT")
-            for (int i = 0; i < possible_actions.size(); i++)
-                if (get<0>(possible_actions[i]) == "GROW") {
-                    selected = possible_actions[i];
-                    break;
-                }
         return to_string(selected);
     }
 };
