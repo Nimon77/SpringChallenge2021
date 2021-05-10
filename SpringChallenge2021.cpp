@@ -244,7 +244,7 @@ public:
                     else if (board[get<1>(possible_actions[i])].richness >= board[get<1>(selected)].richness)
                         selected = possible_actions[i];
                 }
-                else if (get<0>(possible_actions[i]) == "SEED" && day < 15 && countTreeSize(0) < 2) {
+                else if (get<0>(possible_actions[i]) == "SEED" && day < 19 && countTreeSize(0) < 2) {
                     if (!is_in_shadow(get<2>(possible_actions[i]))) {
                         if (get<0>(selected) == "WAIT")
                             selected = possible_actions[i];
