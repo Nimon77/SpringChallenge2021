@@ -186,6 +186,55 @@ public:
         return nbr;
     }
 
+    int countMyTrees() {
+        int nbr = 0;
+        for (int i = 0; i < trees.size(); i++)
+            if (trees[i].is_mine)
+                nbr++;
+        return nbr;
+    }
+
+    bool searchCompleteAction(int cell_id) {
+        if (cell_id < 0)
+            return false;
+        for (int i = 0; i < completes.size(); i++)
+            if (get<1>(completes[i]) == cell_id)
+                return true;
+        return false;
+    }
+
+    bool searchGrowAction(int cell_id) {
+        if (cell_id < 0)
+            return false;
+        for (int i = 0; i < grows.size(); i++)
+            if (get<1>(grows[i]) == cell_id)
+                return true;
+        return false;
+    }
+
+    bool searchSeedAction(int cellId1, int cellId2) {
+        if (cellId1 < 0 || cellId2 < 0)
+            return false;
+        for (int i = 0; i < seeds.size(); i++)
+            if (get<1>(seeds[i]) == cellId1 && get<2>(seeds[i]) == cellId2)
+                return true;
+        return false;
+    }
+
+    void findDiffActions() {
+        for (int i = 0; i < possible_actions.size(); i++) {
+            string action = get<0>(possible_actions[i]);
+            int arg1 = get<1>(possible_actions[i]);
+            int arg2 = get<2>(possible_actions[i]);
+            if (action == "GROW" && !searchGrowAction(arg1))
+                cerr << possible_actions[i] << endl;
+            if (action == "SEED" && !searchSeedAction(arg1, arg2))
+                cerr << possible_actions[i] << endl;
+            if (action == "COMPLETE" && !searchCompleteAction(arg1))
+                cerr << possible_actions[i] << endl;
+        }
+    }
+
     void calcPossibleActions() {
         grows.clear(); seeds.clear(); completes.clear();
         int size0 = countTreeSize(0);
@@ -211,10 +260,25 @@ public:
                         cell = board[cell.neighbors[orient]];
                         if (!find_tree(cell.cell_index) && cell.richness != 0)
                             seeds.push_back(make_tuple("SEED", trees[i].cell_index, cell.cell_index));
+                        if ((j == 0 && trees[i].size > 1) || (j == 1 && trees[i].size > 2)) {
+                            int neigh1 = orient - 1 < 0 ? 5 : orient - 1;
+                            neigh1 = cell.neighbors[neigh1];
+                            if (neigh1 > -1 && !searchSeedAction(trees[i].cell_index, neigh1))
+                                if (!find_tree(board[neigh1].cell_index) && board[neigh1].richness != 0)
+                                    seeds.push_back(make_tuple("SEED", trees[i].cell_index, neigh1));
+                            int neigh2 = orient + 1 > 5 ? 0 : orient + 1;
+                            neigh2 = cell.neighbors[neigh2];
+                            if (neigh2 > -1 && !searchSeedAction(trees[i].cell_index, neigh2))
+                                if (!find_tree(board[neigh2].cell_index) && board[neigh2].richness != 0)
+                                    seeds.push_back(make_tuple("SEED", trees[i].cell_index, neigh2));
+                        }
                     }
                 }
         }
-//        cerr << "calc action :" << endl << "WAIT" << endl << grows << seeds << completes << endl << endl << "given actions :" << endl << possible_actions;
+//        findDiffActions();
+//        cerr << "calc action :"<< grows.size() + seeds.size() + completes.size() + 1 << endl
+//            << "WAIT" << endl << grows << seeds << completes << endl
+//            << endl << "given actions :" << possible_actions.size() << endl << possible_actions;
     }
 
     bool is_in_shadow(int cell_id) {
@@ -244,12 +308,15 @@ public:
                     else if (board[get<1>(possible_actions[i])].richness >= board[get<1>(selected)].richness)
                         selected = possible_actions[i];
                 }
-                else if (get<0>(possible_actions[i]) == "SEED" && day < 19 && countTreeSize(0) < 2) {
+                else if (get<0>(possible_actions[i]) == "SEED" && day < 15 && countTreeSize(0) < 2) {
                     if (!is_in_shadow(get<2>(possible_actions[i]))) {
                         if (get<0>(selected) == "WAIT")
                             selected = possible_actions[i];
                         else if (board[get<2>(possible_actions[i])].richness > board[get<2>(selected)].richness)
                             selected = possible_actions[i];
+                    }
+                    else if (countMyTrees() > 10 && board[get<2>(possible_actions[i])].richness == 1) {
+                        selected = possible_actions[i];
                     }
                 }
                 else if (get<0>(possible_actions[i]) == "COMPLETE") {
