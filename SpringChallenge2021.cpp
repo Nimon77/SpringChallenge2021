@@ -56,10 +56,10 @@ public:
     void input() {
         cin >> cell_index >> size >> is_mine >> is_dormant;
     }
-    int cell_index;
-    int size;
-    bool is_mine;
-    bool is_dormant;
+    int cell_index = -1;
+    int size = -1;
+    bool is_mine = -1;
+    bool is_dormant = -1;
 };
 
 class Game {
@@ -171,7 +171,9 @@ public:
         }
     }
 
-    Tree* find_tree(int cell_id) {
+    Tree* findTree(int cell_id) {
+        if (cell_id < 0)
+            return NULL;
         for (int i = 0; i < trees.size(); i++)
             if (trees[i].cell_index == cell_id)
                 return &trees[i];
@@ -258,18 +260,18 @@ public:
                         if (cell.neighbors[orient] == -1)
                             break;
                         cell = board[cell.neighbors[orient]];
-                        if (!find_tree(cell.cell_index) && cell.richness != 0)
+                        if (!findTree(cell.cell_index) && cell.richness != 0)
                             seeds.push_back(make_tuple("SEED", trees[i].cell_index, cell.cell_index));
                         if ((j == 0 && trees[i].size > 1) || (j == 1 && trees[i].size > 2)) {
                             int neigh1 = orient - 1 < 0 ? 5 : orient - 1;
                             neigh1 = cell.neighbors[neigh1];
                             if (neigh1 > -1 && !searchSeedAction(trees[i].cell_index, neigh1))
-                                if (!find_tree(board[neigh1].cell_index) && board[neigh1].richness != 0)
+                                if (!findTree(board[neigh1].cell_index) && board[neigh1].richness != 0)
                                     seeds.push_back(make_tuple("SEED", trees[i].cell_index, neigh1));
                             int neigh2 = orient + 1 > 5 ? 0 : orient + 1;
                             neigh2 = cell.neighbors[neigh2];
                             if (neigh2 > -1 && !searchSeedAction(trees[i].cell_index, neigh2))
-                                if (!find_tree(board[neigh2].cell_index) && board[neigh2].richness != 0)
+                                if (!findTree(board[neigh2].cell_index) && board[neigh2].richness != 0)
                                     seeds.push_back(make_tuple("SEED", trees[i].cell_index, neigh2));
                         }
                     }
@@ -297,8 +299,57 @@ public:
         return false;
     }
 
+    int calcShadowTree(int cell_id, Tree givenTree) {
+        int shadow[6] = {0};
+        if (cell_id < 0)
+            return 0;
+        for (int i = 0; i < trees.size(); i++) {
+            for (int orient = 0; orient < 6; orient++) {
+                Cell cell = board[trees[i].cell_index];
+                for (int size = 0; size < trees[i].size; size++) {
+                    if (cell.neighbors[orient] != -1)
+                        cell = board[cell.neighbors[orient]];
+                    if (givenTree.size != -1)
+                        if (cell.cell_index == cell_id && trees[i].size >= givenTree.size)
+                            shadow[orient]++;
+                    else
+                        if (cell.cell_index == cell_id && trees[i].size >= givenTree.size)
+                            shadow[orient]++;
+                }
+            }
+        }
+        int count = 0;
+        for (int i = 0; i < 6; i++)
+            if (shadow[i] != 0)
+                count++;
+//        cerr << count << endl;
+        return count;
+    }
+
+    int calcShadow(int cell_id) {
+        int shadow[6] = {0};
+        if (cell_id < 0)
+            return 0;
+        for (int i = 0; i < trees.size(); i++) {
+            for (int orient = 0; orient < 6; orient++) {
+                Cell cell = board[trees[i].cell_index];
+                for (int size = 0; size < trees[i].size; size++) {
+                    if (cell.neighbors[orient] != -1)
+                        cell = board[cell.neighbors[orient]];
+                    if (cell.cell_index == cell_id)
+                        shadow[orient]++;
+                }
+            }
+        }
+        int count = 0;
+        for (int i = 0; i < 6; i++)
+            if (shadow[i] != 0)
+                count++;
+//        cerr << count << endl;
+        return count;
+    }
+
     string compute_next_action() {
-        calcPossibleActions();
         tuple<string,int,int> selected = possible_actions[0];
         for (int i = 0; i < possible_actions.size(); i++){
             if (get<0>(possible_actions[i]) != "WAIT") {
