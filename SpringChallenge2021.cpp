@@ -3,6 +3,7 @@
 #include <vector>
 #include <algorithm>
 #include <tuple>
+#include <climits>
 
 using namespace std;
 
@@ -58,8 +59,8 @@ public:
     }
     int cell_index = -1;
     int size = -1;
-    bool is_mine = -1;
-    bool is_dormant = -1;
+    bool is_mine = false;
+    bool is_dormant = false;
 };
 
 class Game {
@@ -299,22 +300,19 @@ public:
         return false;
     }
 
-    int calcShadowTree(int cell_id, Tree givenTree) {
+    int sunRateWeek(Tree givenTree) {
         int shadow[6] = {0};
-        if (cell_id < 0)
+        if (givenTree.cell_index < 0)
             return 0;
         for (int i = 0; i < trees.size(); i++) {
             for (int orient = 0; orient < 6; orient++) {
                 Cell cell = board[trees[i].cell_index];
                 for (int size = 0; size < trees[i].size; size++) {
-                    if (cell.neighbors[orient] != -1)
-                        cell = board[cell.neighbors[orient]];
-                    if (givenTree.size != -1)
-                        if (cell.cell_index == cell_id && trees[i].size >= givenTree.size)
-                            shadow[orient]++;
-                    else
-                        if (cell.cell_index == cell_id && trees[i].size >= givenTree.size)
-                            shadow[orient]++;
+                    if (cell.neighbors[orient] == -1)
+                        break;
+                    cell = board[cell.neighbors[orient]];
+                    if (cell.cell_index == givenTree.cell_index && trees[i].size >= givenTree.size)
+                        shadow[orient]++;
                 }
             }
         }
@@ -323,7 +321,52 @@ public:
             if (shadow[i] != 0)
                 count++;
 //        cerr << count << endl;
-        return count;
+        return (givenTree.size * (6 - count));
+    }
+
+    int sunRateWeek(Cell givenCell) {
+        int shadow[6] = {0};
+        if (givenCell.cell_index < 0)
+            return 0;
+        for (int i = 0; i < trees.size(); i++) {
+            for (int orient = 0; orient < 6; orient++) {
+                Cell cell = board[trees[i].cell_index];
+                if (cell.cell_index != givenCell.cell_index)
+                    for (int size = 0; size < trees[i].size; size++) {
+                        if (cell.neighbors[orient] == -1)
+                            break;
+                        cell = board[cell.neighbors[orient]];
+                        if (cell.cell_index == givenCell.cell_index && trees[i].size > 2)
+                            shadow[orient]++;
+                    }
+            }
+        }
+        int count = 0;
+        for (int i = 0; i < 6; i++)
+            if (shadow[i] != 0)
+                count++;
+//        cerr << count << endl;
+        return (6 - count);
+    }
+
+    int sunRateNextDay(Tree givenTree) {
+        int shadow = 0;
+        int nextDay = day + 1 > 5 ? 0 : day + 1;
+        if (givenTree.cell_index < 0)
+            return 0;
+        for (int i = 0; i < trees.size(); i++) {
+            Cell cell = board[trees[i].cell_index];
+            if (cell.cell_index != givenTree.cell_index)
+                for (int size = 0; size < trees[i].size; size++) {
+                    if (cell.neighbors[nextDay] == -1)
+                        break;
+                    cell = board[cell.neighbors[nextDay]];
+                    if (cell.cell_index == givenTree.cell_index && trees[i].size >= givenTree.size)
+                        shadow++;
+                }
+        }
+//        cerr << givenTree.cell_index << ": " << shadow << endl;
+        return (shadow > 0 ? 0 : givenTree.size);
     }
 
     int calcShadow(int cell_id) {
@@ -349,6 +392,65 @@ public:
         return count;
     }
 
+    int bestScore(vector<int> &score) {
+        vector<int> bestScore(2, -1);
+        for (int i = 0; i < score.size(); i++)
+            if (score[i] > bestScore[1]) {
+                bestScore[0] = i;
+                bestScore[1] = score[i];
+            }
+        return bestScore[0];
+    }
+
+    int lowestScore(vector<int> &score) {
+        vector<int> lowestScore(2, INT_MAX);
+        for (int i = 0; i < score.size(); i++)
+            if (score[i] <= lowestScore[1]) {
+                lowestScore[0] = i;
+                lowestScore[1] = score[i];
+            }
+        return lowestScore[0];
+    }
+
+    string compute_next_action_new() {
+        calcPossibleActions();
+//        cerr << completes << grows << seeds << endl;
+        int dayLeft = 23 - day;
+        if (countTreeSize(3) > dayLeft || countTreeSize(3) > 5) {
+            vector<int> score(completes.size(), -1);
+            for (int i = 0; i < completes.size(); i++) {
+                Tree *current = findTree(get<1>(completes[i]));
+                score[i] = sunRateWeek(*current) + sunRateNextDay(*current) - (board[current->cell_index].richness == 3 ? 5 : 0);
+            }
+            int lowest = lowestScore(score);
+            if (lowest < completes.size())
+                return to_string(completes[lowestScore(score)]);
+        }
+        else if (grows.size() > 0) {
+            vector<int> score(grows.size(), -1);
+            for (int i = 0; i < grows.size(); i++) {
+                Tree *current = findTree(get<1>(grows[i]));
+                score[i] = sunRateNextDay(*current) + current->size;
+            }
+            int best = bestScore(score);
+            if (best >= 0)
+                return to_string(grows[best]);
+        }
+        else if (seeds.size() > 0 && countTreeSize(0) < 1) {
+            vector<int> score(seeds.size(), -1);
+            for (int i = 0; i < seeds.size(); i++) {
+                Tree *sender = findTree(get<1>(seeds[i]));
+                Cell receiver = board[get<2>(seeds[i])];
+                if (sender->size > 1)
+                    score[i] = sunRateWeek(receiver) + receiver.richness + (is_in_shadow(receiver.cell_index) ? 0 : 5);
+            }
+            int best = bestScore(score);
+            if (best >= 0)
+                return to_string(seeds[best]);
+        }
+        return "WAIT";
+    }
+
     string compute_next_action() {
         tuple<string,int,int> selected = possible_actions[0];
         for (int i = 0; i < possible_actions.size(); i++){
@@ -359,7 +461,7 @@ public:
                     else if (board[get<1>(possible_actions[i])].richness >= board[get<1>(selected)].richness)
                         selected = possible_actions[i];
                 }
-                else if (get<0>(possible_actions[i]) == "SEED" && day < 15 && countTreeSize(0) < 2) {
+                else if (get<0>(possible_actions[i]) == "SEED" && countTreeSize(0) < 1) {
                     if (!is_in_shadow(get<2>(possible_actions[i]))) {
                         if (get<0>(selected) == "WAIT")
                             selected = possible_actions[i];
@@ -392,6 +494,7 @@ int main()
     while (true) {
         game.inputInfo();
 //        game.printGameDayInfo();
-        cout << game.compute_next_action() << endl;
+//        cout << game.compute_next_action() << endl;
+        cout << game.compute_next_action_new() << endl;
     }
 }
